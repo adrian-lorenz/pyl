@@ -20,6 +20,9 @@ classifiers = [
     "Intended Audience :: Developers",
 ]
 
+[project.scripts]
+pyl = "pyl:run_cli"
+
 [tool.maturin]
 bindings = "pyo3"
 features = ["extension-module"]

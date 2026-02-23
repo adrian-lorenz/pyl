@@ -38,7 +38,9 @@ pub struct Scanner {
 }
 
 const SUPPRESS_MARKERS: &[&str] = &["# pyl-ignore", "# noqa-secrets", "# nosec-secrets"];
-const SKIP_DIRS: &[&str] = &[".git","node_modules","target","vendor",".venv","__pycache__","dist","build",".eggs",".tox",".mypy_cache"];
+const SKIP_DIRS: &[&str] = &[".git","node_modules","target","vendor","__pycache__","dist","build",".eggs",".tox",".mypy_cache"];
+// Any directory whose name starts with one of these prefixes is skipped (.venv, .venv2, venv, venv3, .virtualenv, …)
+const SKIP_DIR_PREFIXES: &[&str] = &[".venv", "venv", ".virtualenv", "virtualenv"];
 
 impl Scanner {
     pub fn new(rules: Vec<Rule>, max_size_kb: u64, cfg: &Config) -> Result<Self> {
@@ -119,7 +121,11 @@ impl Scanner {
         let mut all = Vec::new();
         let mut stats = ScanStats { files: 0, lines: 0 };
         for entry in WalkDir::new(dir).follow_links(false).into_iter()
-            .filter_entry(|e| { let n = e.file_name().to_string_lossy(); !SKIP_DIRS.iter().any(|&s| n == s) })
+            .filter_entry(|e| {
+                let n = e.file_name().to_string_lossy();
+                !SKIP_DIRS.iter().any(|&s| n == s)
+                    && !SKIP_DIR_PREFIXES.iter().any(|&p| n.starts_with(p))
+            })
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
         {

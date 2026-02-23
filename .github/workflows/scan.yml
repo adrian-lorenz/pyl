@@ -1,0 +1,31 @@
+name: Secret Scan
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  pyl:
+    name: pyl secret scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download pyl
+        run: |
+          curl -sSL \
+            https://github.com/adrian-lorenz/pyl/releases/latest/download/pyl-linux-amd64 \
+            -o /usr/local/bin/pyl
+          chmod +x /usr/local/bin/pyl
+
+      - name: Run scan
+        run: pyl check --format sarif --github-summary
+        continue-on-error: true
+
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: results.sarif

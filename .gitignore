@@ -1,0 +1,36 @@
+# Rust
+/target
+Cargo.lock
+
+# Build output
+/dist
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Claude
+.claude/
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Linux
+*~
+
+# Env / secrets
+.env
+.env.*
+*.env
+
+# Logs
+*.log
+
+# pyl config (optional — commit if you want to share project settings)
+# pyl.toml

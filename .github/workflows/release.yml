@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ── Linux & Windows (cross-compilation via Docker) ──────────────────────────
+  build-linux-windows:
+    name: Build ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            name: linux-amd64
+            ext: ""
+          - target: aarch64-unknown-linux-musl
+            name: linux-arm64
+            ext: ""
+          - target: x86_64-pc-windows-gnu
+            name: windows-amd64
+            ext: .exe
+          - target: aarch64-pc-windows-gnullvm
+            name: windows-arm64
+            ext: .exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Rename binary
+        run: |
+          cp target/${{ matrix.target }}/release/pyl${{ matrix.ext }} \
+             pyl-${{ matrix.name }}${{ matrix.ext }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyl-${{ matrix.name }}
+          path: pyl-${{ matrix.name }}${{ matrix.ext }}
+
+  # ── macOS ARM64 (native build) ───────────────────────────────────────────────
+  build-macos:
+    name: Build macos-arm64
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Build
+        run: cargo build --release --target aarch64-apple-darwin
+
+      - name: Rename binary
+        run: cp target/aarch64-apple-darwin/release/pyl pyl-macos-arm64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyl-macos-arm64
+          path: pyl-macos-arm64
+
+  # ── Create GitHub Release ────────────────────────────────────────────────────
+  release:
+    name: Create Release
+    needs: [build-linux-windows, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Show binaries
+        run: ls -lh dist/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: pyl ${{ github.ref_name }}
+          body: |
+            ## pyl ${{ github.ref_name }}
+
+            ### Download
+
+            | Platform | File |
+            |----------|------|
+            | Linux x86_64 | `pyl-linux-amd64` |
+            | Linux ARM64 | `pyl-linux-arm64` |
+            | Windows x86_64 | `pyl-windows-amd64.exe` |
+            | Windows ARM64 | `pyl-windows-arm64.exe` |
+            | macOS Apple Silicon | `pyl-macos-arm64` |
+
+            ### Install (Linux / macOS)
+            ```bash
+            chmod +x pyl-linux-amd64
+            sudo mv pyl-linux-amd64 /usr/local/bin/pyl
+            ```
+          files: dist/*
+          generate_release_notes: true

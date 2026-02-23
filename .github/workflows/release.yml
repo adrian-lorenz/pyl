@@ -106,6 +106,60 @@ jobs:
           name: pyl-macos-arm64
           path: pyl-macos-arm64
 
+  # ── Build Python Wheels ───────────────────────────────────────────────────────
+  build-wheels:
+    name: Wheel (${{ matrix.target }})
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: universal2-apple-darwin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist
+          manylinux: auto
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.target }}
+          path: dist/*.whl
+
+  # ── Publish to PyPI ───────────────────────────────────────────────────────────
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [prepare, build-wheels]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # required for OIDC trusted publishing
+
+    steps:
+      - name: Download all wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
   # ── Create GitHub Release ────────────────────────────────────────────────────
   release:
     name: Create Release
@@ -134,7 +188,15 @@ jobs:
           name: pyl ${{ needs.prepare.outputs.tag }}
           generate_release_notes: true
           body: |
-            ## Download
+            ## Install
+
+            ### via pip (recommended)
+            ```bash
+            pip install pyl
+            pyl check .
+            ```
+
+            ### Manual download
 
             | Platform | File |
             |----------|------|
@@ -143,7 +205,6 @@ jobs:
             | Windows x86_64 | `pyl-windows-amd64.exe` |
             | macOS Apple Silicon | `pyl-macos-arm64` |
 
-            ### Install (Linux / macOS)
             ```bash
             chmod +x pyl-linux-amd64
             sudo mv pyl-linux-amd64 /usr/local/bin/pyl

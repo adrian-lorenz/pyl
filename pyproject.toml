@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "pyl"
+name = "pyl-secret-leaks"
 dynamic = ["version"]  # pulled from Cargo.toml automatically
 description = "pyl — fast secret scanner for your codebase"
 readme = "README.md"

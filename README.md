@@ -2,6 +2,7 @@
 
 > **pyl** — fast secret scanner for your codebase
 
+
 A lightweight, zero-config CLI tool written in Rust that scans source code for accidentally committed secrets, credentials, and sensitive data.
 
 ---

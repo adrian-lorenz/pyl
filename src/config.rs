@@ -8,21 +8,21 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize, Default)]
-pub(crate) struct Config {
+pub struct Config {
     #[serde(default)]
-    pub(crate) scan: ScanConfig,
+    pub scan: ScanConfig,
     #[serde(default)]
-    pub(crate) rules: RulesConfig,
+    pub rules: RulesConfig,
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct ScanConfig {
+pub struct ScanConfig {
     #[serde(default = "default_extensions")]
-    pub(crate) extensions: Vec<String>,
+    pub extensions: Vec<String>,
     #[serde(default)]
-    pub(crate) exclude_paths: Vec<String>,
+    pub exclude_paths: Vec<String>,
     #[serde(default)]
-    pub(crate) exclude_files: Vec<String>,
+    pub exclude_files: Vec<String>,
 }
 
 impl Default for ScanConfig {
@@ -34,9 +34,9 @@ impl Default for ScanConfig {
 fn default_extensions() -> Vec<String> { vec![] }
 
 #[derive(Debug, Deserialize, Default)]
-pub(crate) struct RulesConfig {
+pub struct RulesConfig {
     #[serde(default)]
-    pub(crate) disable: Vec<String>,
+    pub disable: Vec<String>,
 }
 
 impl Config {
@@ -48,7 +48,7 @@ impl Config {
         Ok(cfg)
     }
 
-    pub(crate) fn load_auto(explicit: Option<&PathBuf>) -> Config {
+    pub fn load_auto(explicit: Option<&PathBuf>) -> Config {
         let path = explicit.cloned().unwrap_or_else(|| PathBuf::from("pyl.toml"));
         if path.exists() {
             match Config::load(&path) {
@@ -58,11 +58,11 @@ impl Config {
         } else { Config::default() }
     }
 
-    pub(crate) fn allowed_extensions(&self) -> HashSet<String> {
+    pub fn allowed_extensions(&self) -> HashSet<String> {
         self.scan.extensions.iter().map(|e| e.trim_start_matches('.').to_lowercase()).collect()
     }
 
-    pub(crate) fn disabled_rules(&self) -> HashSet<String> {
+    pub fn disabled_rules(&self) -> HashSet<String> {
         self.rules.disable.iter().cloned().collect()
     }
 }
@@ -131,7 +131,7 @@ disable = ["jwt-token", "http-insecure-url"]
     }
 }
 
-pub(crate) fn default_config_toml() -> &'static str {
+pub fn default_config_toml() -> &'static str {
     r#"# pyl.toml
 [scan]
 # Empty = scan all files (except .env and .git). Restrict with e.g.:

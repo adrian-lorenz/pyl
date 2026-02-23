@@ -8,16 +8,12 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 mod cli;
-mod config;
-mod output;
-mod rules;
-mod scanner;
 
 use cli::{Cli, Commands, OutputFormat};
-use config::{Config, default_config_toml};
-use output::{print_json, print_markdown, print_pretty, print_sarif, write_github_summary};
-use rules::builtin_rules;
-use scanner::Scanner;
+use pyl::config::{Config, default_config_toml};
+use pyl::output::{print_json, print_markdown, print_pretty, print_sarif, write_github_summary};
+use pyl::rules::builtin_rules;
+use pyl::scanner::Scanner;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();

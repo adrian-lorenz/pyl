@@ -8,7 +8,7 @@ use std::path::Path;
 use crate::rules::{severity_color, Severity};
 use crate::scanner::Finding;
 
-pub(crate) fn print_pretty(findings: &[Finding], show_warnings: bool) {
+pub fn print_pretty(findings: &[Finding], show_warnings: bool) {
     let non_warn: Vec<_> = findings.iter().filter(|f| f.severity != "WARNING").collect();
     if findings.is_empty() || (!show_warnings && non_warn.is_empty()) {
         println!("{}", "✅ No secrets found!".green().bold());
@@ -46,12 +46,12 @@ pub(crate) fn print_pretty(findings: &[Finding], show_warnings: bool) {
     }
 }
 
-pub(crate) fn print_json(findings: &[&Finding]) -> Result<()> {
+pub fn print_json(findings: &[&Finding]) -> Result<()> {
     println!("{}", serde_json::to_string_pretty(findings)?);
     Ok(())
 }
 
-pub(crate) fn print_markdown(findings: &[&Finding]) {
+pub fn print_markdown(findings: &[&Finding]) {
     if findings.is_empty() {
         println!("✅ No secrets found.");
         return;
@@ -68,7 +68,7 @@ pub(crate) fn print_markdown(findings: &[&Finding]) {
     }
 }
 
-pub(crate) fn print_sarif(findings: &[&Finding]) -> Result<()> {
+pub fn print_sarif(findings: &[&Finding]) -> Result<()> {
     let sarif = serde_json::json!({
         "version": "2.1.0",
         "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
@@ -85,7 +85,7 @@ pub(crate) fn print_sarif(findings: &[&Finding]) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn write_github_summary(findings: &[Finding], source: &Path) -> Result<()> {
+pub fn write_github_summary(findings: &[Finding], source: &Path) -> Result<()> {
     let out_path = std::env::var("GITHUB_STEP_SUMMARY")
         .unwrap_or_else(|_| "/tmp/pyl-summary.md".to_string());
     let content = build_github_summary(findings, source);

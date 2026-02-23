@@ -13,23 +13,23 @@ use crate::config::Config;
 use crate::rules::Rule;
 
 #[derive(Debug, Serialize)]
-pub(crate) struct Finding {
-    pub(crate) rule_id: String,
-    pub(crate) description: String,
-    pub(crate) severity: String,
-    pub(crate) file: String,
-    pub(crate) line_number: usize,
-    pub(crate) line: String,
-    pub(crate) secret: String,
-    pub(crate) tags: Vec<String>,
+pub struct Finding {
+    pub rule_id: String,
+    pub description: String,
+    pub severity: String,
+    pub file: String,
+    pub line_number: usize,
+    pub line: String,
+    pub secret: String,
+    pub tags: Vec<String>,
 }
 
-pub(crate) struct ScanStats {
-    pub(crate) files: usize,
-    pub(crate) lines: usize,
+pub struct ScanStats {
+    pub files: usize,
+    pub lines: usize,
 }
 
-pub(crate) struct Scanner {
+pub struct Scanner {
     rules: Vec<(Rule, Regex)>,
     max_size_bytes: u64,
     allowed_extensions: HashSet<String>,
@@ -41,7 +41,7 @@ const SUPPRESS_MARKERS: &[&str] = &["# pyl-ignore", "# noqa-secrets", "# nosec-s
 const SKIP_DIRS: &[&str] = &[".git","node_modules","target","vendor",".venv","__pycache__","dist","build",".eggs",".tox",".mypy_cache"];
 
 impl Scanner {
-    pub(crate) fn new(rules: Vec<Rule>, max_size_kb: u64, cfg: &Config) -> Result<Self> {
+    pub fn new(rules: Vec<Rule>, max_size_kb: u64, cfg: &Config) -> Result<Self> {
         let disabled = cfg.disabled_rules();
         let compiled: Result<Vec<_>> = rules.into_iter()
             .filter(|r| !disabled.contains(r.id))
@@ -52,7 +52,7 @@ impl Scanner {
             .collect();
         Ok(Self {
             rules: compiled?,
-            max_size_bytes: max_size_kb * 1024,
+            max_size_bytes: max_size_kb.saturating_mul(1024),
             allowed_extensions: cfg.allowed_extensions(),
             exclude_paths: cfg.scan.exclude_paths.clone(),
             exclude_files: cfg.scan.exclude_files.iter().cloned().collect(),
@@ -73,18 +73,9 @@ impl Scanner {
         true
     }
 
-    pub(crate) fn scan_file(&self, path: &Path) -> Result<(Vec<Finding>, ScanStats)> {
-        if !self.is_allowed_path(path) { return Ok((vec![], ScanStats { files: 0, lines: 0 })); }
-        let meta = std::fs::metadata(path)?;
-        if meta.len() == 0 || meta.len() > self.max_size_bytes { return Ok((vec![], ScanStats { files: 1, lines: 0 })); }
-        let content = std::fs::read(path)?;
-        let sample = &content[..content.len().min(512)];
-        if sample.iter().filter(|&&b| b < 7 || b == 127).count() * 100 / sample.len().max(1) > 30 { return Ok((vec![], ScanStats { files: 1, lines: 0 })); }
-        let text = String::from_utf8_lossy(&content);
+    pub fn scan_text(&self, text: &str, source_name: &str) -> Vec<Finding> {
         let mut findings = Vec::new();
-        let mut line_count = 0usize;
         for (ln, line) in text.lines().enumerate() {
-            line_count += 1;
             if SUPPRESS_MARKERS.iter().any(|&m| line.contains(m)) { continue; }
             for (rule, regex) in &self.rules {
                 for caps in regex.captures_iter(line) {
@@ -99,7 +90,7 @@ impl Scanner {
                         rule_id: rule.id.to_string(),
                         description: rule.description.to_string(),
                         severity: rule.severity.to_string(),
-                        file: path.display().to_string(),
+                        file: source_name.to_string(),
                         line_number: ln + 1,
                         line: truncate_line(line.trim()),
                         secret: redact_secret(&secret),
@@ -108,10 +99,23 @@ impl Scanner {
                 }
             }
         }
+        findings
+    }
+
+    pub fn scan_file(&self, path: &Path) -> Result<(Vec<Finding>, ScanStats)> {
+        if !self.is_allowed_path(path) { return Ok((vec![], ScanStats { files: 0, lines: 0 })); }
+        let meta = std::fs::metadata(path)?;
+        if meta.len() == 0 || meta.len() > self.max_size_bytes { return Ok((vec![], ScanStats { files: 1, lines: 0 })); }
+        let content = std::fs::read(path)?;
+        let sample = &content[..content.len().min(512)];
+        if sample.iter().filter(|&&b| b < 7 || b == 127).count() * 100 / sample.len().max(1) > 30 { return Ok((vec![], ScanStats { files: 1, lines: 0 })); }
+        let text = String::from_utf8_lossy(&content);
+        let line_count = text.lines().count();
+        let findings = self.scan_text(&text, &path.display().to_string());
         Ok((findings, ScanStats { files: 1, lines: line_count }))
     }
 
-    pub(crate) fn scan_directory(&self, dir: &Path, verbose: bool) -> Result<(Vec<Finding>, ScanStats)> {
+    pub fn scan_directory(&self, dir: &Path, verbose: bool) -> Result<(Vec<Finding>, ScanStats)> {
         let mut all = Vec::new();
         let mut stats = ScanStats { files: 0, lines: 0 };
         for entry in WalkDir::new(dir).follow_links(false).into_iter()

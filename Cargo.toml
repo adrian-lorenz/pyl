@@ -1,14 +1,23 @@
 [package]
 name = "pyl"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "pyl — fast secret scanner for your codebase"
+
+[lib]
+name = "pyl"
+crate-type = ["cdylib", "rlib"]
 
 [[bin]]
 name = "pyl"
 path = "src/main.rs"
 
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]
+
 [dependencies]
+pyo3 = { version = "0.24", optional = true }
 regex = "1.12"
 clap = { version = "4.5", features = ["derive"] }
 walkdir = "2.5"

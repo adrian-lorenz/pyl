@@ -5,17 +5,17 @@ use colored::{ColoredString, Colorize};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct Rule {
-    pub(crate) id: &'static str,
-    pub(crate) description: &'static str,
-    pub(crate) pattern: &'static str,
-    pub(crate) secret_group: usize,
-    pub(crate) severity: Severity,
-    pub(crate) tags: Vec<&'static str>,
+pub struct Rule {
+    pub id: &'static str,
+    pub description: &'static str,
+    pub pattern: &'static str,
+    pub secret_group: usize,
+    pub severity: Severity,
+    pub tags: Vec<&'static str>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) enum Severity { Critical, High, Medium, Low, Warning }
+pub enum Severity { Critical, High, Medium, Low, Warning }
 
 impl std::fmt::Display for Severity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -29,7 +29,7 @@ impl std::fmt::Display for Severity {
     }
 }
 
-pub(crate) fn severity_color(s: &Severity) -> ColoredString {
+pub fn severity_color(s: &Severity) -> ColoredString {
     match s {
         Severity::Critical => s.to_string().red().bold(),
         Severity::High     => s.to_string().yellow().bold(),
@@ -39,7 +39,7 @@ pub(crate) fn severity_color(s: &Severity) -> ColoredString {
     }
 }
 
-pub(crate) fn builtin_rules() -> Vec<Rule> { vec![
+pub fn builtin_rules() -> Vec<Rule> { vec![
     // ── Cloud / VCS ──────────────────────────────────────────────────────────
     Rule { id: "aws-access-key",          description: "AWS Access Key ID",                  pattern: r"(?i)(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}", secret_group: 0, severity: Severity::Critical, tags: vec!["aws","cloud"] },
     Rule { id: "aws-secret-key",          description: "AWS Secret Access Key",              pattern: r#"(?i)aws[_\-\s\.]{0,5}secret[_\-\s\.]{0,5}(access[_\-\s\.]{0,5})?key["'\s]*[:=]["'\s]*([A-Za-z0-9+/]{40})"#, secret_group: 2, severity: Severity::Critical, tags: vec!["aws","cloud"] },
@@ -185,6 +185,23 @@ pub(crate) fn builtin_rules() -> Vec<Rule> { vec![
         pattern: r"(?i)(?:LogicApp|PowerAutomate|flow)[._-]?(?:shared[._-]?)?(?:access[._-]?)?key\s*[=:]\s*([A-Za-z0-9+/]{40,}={0,2})",
         secret_group: 1, severity: Severity::High, tags: vec!["m365","power-automate","azure"],
     },
+
+    // ── Frontend / SaaS ──────────────────────────────────────────────────────
+    Rule { id: "firebase-private-key",   description: "Firebase Admin SDK Private Key ID",     pattern: r"(?i)(?:firebase|FIREBASE)[._-]?(?:admin[._-]?)?(?:private[._-]?)?key[._-]?(?:id)?\s*[=:]\s*([A-Za-z0-9]{40})", secret_group: 1, severity: Severity::Critical, tags: vec!["firebase","google","frontend"] },
+    Rule { id: "mapbox-public-token",    description: "Mapbox Public Access Token",            pattern: r"pk\.eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+", secret_group: 0, severity: Severity::Low, tags: vec!["mapbox","frontend"] },
+    Rule { id: "mapbox-secret-token",    description: "Mapbox Secret Access Token",            pattern: r"sk\.eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+", secret_group: 0, severity: Severity::High, tags: vec!["mapbox","frontend"] },
+    Rule { id: "sentry-dsn",            description: "Sentry DSN (contains auth token)",      pattern: r"https://[a-f0-9]{32}@[a-z0-9\-]+\.ingest\.sentry\.io/[0-9]+", secret_group: 0, severity: Severity::Medium, tags: vec!["sentry","observability","frontend"] },
+    Rule { id: "contentful-pat",         description: "Contentful Personal Access Token",      pattern: r"CFPAT-[A-Za-z0-9\-_]{43}", secret_group: 0, severity: Severity::High, tags: vec!["contentful","cms","frontend"] },
+    Rule { id: "shopify-pat",            description: "Shopify Admin API Access Token",        pattern: r"shpat_[A-Fa-f0-9]{32}", secret_group: 0, severity: Severity::Critical, tags: vec!["shopify","ecommerce"] },
+    Rule { id: "shopify-shared-secret",  description: "Shopify Shared Secret",                 pattern: r"shpss_[A-Fa-f0-9]{32}", secret_group: 0, severity: Severity::Critical, tags: vec!["shopify","ecommerce"] },
+    Rule { id: "shopify-custom-app",     description: "Shopify Custom App Access Token",       pattern: r"shpca_[A-Fa-f0-9]{32}", secret_group: 0, severity: Severity::Critical, tags: vec!["shopify","ecommerce"] },
+    Rule { id: "shopify-private-app",    description: "Shopify Private App Access Token",      pattern: r"shppa_[A-Fa-f0-9]{32}", secret_group: 0, severity: Severity::Critical, tags: vec!["shopify","ecommerce"] },
+    Rule { id: "algolia-admin-key",      description: "Algolia Admin API Key",                 pattern: r#"(?i)(?:algolia[._-]?(?:admin[._-]?)?(?:api[._-]?)?key|ALGOLIA_ADMIN_KEY)\s*[=:]["'\s]*([a-f0-9]{32})"#, secret_group: 1, severity: Severity::Critical, tags: vec!["algolia","search","frontend"] },
+    Rule { id: "linear-api-key",         description: "Linear API Key",                        pattern: r"lin_api_[A-Za-z0-9]{40}", secret_group: 0, severity: Severity::High, tags: vec!["linear","project-management"] },
+    Rule { id: "postman-api-key",        description: "Postman API Key",                       pattern: r"PMAK-[A-Za-z0-9\-]{58,}", secret_group: 0, severity: Severity::High, tags: vec!["postman","api"] },
+    Rule { id: "planetscale-token",      description: "PlanetScale API Token",                 pattern: r"pscale_tkn_[A-Za-z0-9\-_]{43}", secret_group: 0, severity: Severity::High, tags: vec!["planetscale","database","frontend"] },
+    Rule { id: "cloudflare-api-token",   description: "Cloudflare API Token",                  pattern: r"(?i)(?:CF[._-]?API[._-]?TOKEN|CLOUDFLARE[._-]?(?:API[._-]?)?TOKEN)\s*[=:]\s*([A-Za-z0-9\-_]{40})", secret_group: 1, severity: Severity::High, tags: vec!["cloudflare","cdn","edge"] },
+    Rule { id: "cloudflare-api-key",     description: "Cloudflare Global API Key",             pattern: r"(?i)(?:CF[._-]?API[._-]?KEY|CLOUDFLARE[._-]?(?:API[._-]?)?KEY)\s*[=:]\s*([a-f0-9]{37})", secret_group: 1, severity: Severity::Critical, tags: vec!["cloudflare","cdn","edge"] },
 
     // ── Datenbank ────────────────────────────────────────────────────────────
     Rule { id: "db-postgres-url",      description: "PostgreSQL Connection String",   pattern: r"postgres(?:ql)?://[^:@\s]+:[^:@\s]+@[^/\s]+/\S+",             secret_group: 0, severity: Severity::Critical, tags: vec!["database","postgres"] },

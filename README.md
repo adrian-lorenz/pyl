@@ -3,13 +3,13 @@
 > **pyl** — fast secret scanner for your codebase
 
 
-A lightweight, zero-config CLI tool written in Rust that scans source code for accidentally committed secrets, credentials, and sensitive data.
+A lightweight, zero-config secret scanner written in Rust — available as CLI tool **and** Python library. Scans source code for accidentally committed secrets, credentials, and sensitive data.
 
 ---
 
 ## Features
 
-- **74 built-in detection rules** covering cloud providers, LLMs, databases, HTTP auth, and more
+- **89 built-in detection rules** covering cloud providers, LLMs, databases, HTTP auth, and more
 - **Multiple output formats** — pretty-printed, JSON, and SARIF
 - **GitHub Actions integration** — writes a formatted Job Summary to `$GITHUB_STEP_SUMMARY`
 - **Inline suppression** — annotate lines with `# pyl-ignore` to silence known false positives
@@ -57,7 +57,26 @@ sudo mv pyl-linux-amd64 /usr/local/bin/pyl
 
 ---
 
-## Usage
+## Python Library
+
+After installing via `pip install pyl-secret-leaks`, you can use pyl directly from Python — e.g. to scan text before sending it to an LLM:
+
+```python
+from pyl import scan_text
+
+findings = scan_text("My API key is sk-proj-abc123xyz...")
+for f in findings:
+    print(f.rule_id, f.severity, f.secret)
+
+# Disable specific rules:
+findings = scan_text(text, disable_rules=["http-insecure-url"])
+```
+
+Each finding has the attributes: `rule_id`, `description`, `severity`, `line_number`, `line`, `secret`, `tags`.
+
+---
+
+## CLI Usage
 
 ```bash
 # Scan the current directory
@@ -167,13 +186,14 @@ pyl also automatically skips common false positives:
 | **Cloud / VCS** | AWS keys, GitHub/GitLab PATs, Google API keys, Stripe, Slack, NPM, Docker Hub |
 | **LLM / AI** | OpenAI, Anthropic, Cohere, Mistral, Hugging Face, Replicate, Groq, Perplexity |
 | **Azure / M365** | Tenant/Client IDs, Storage keys, Service Bus, Cosmos DB, Teams webhooks, Graph API |
+| **Frontend / SaaS** | Firebase, Mapbox, Sentry DSN, Contentful, Shopify, Algolia, Linear, Postman, PlanetScale, Cloudflare |
 | **Databases** | PostgreSQL, MySQL, MongoDB, Redis, MSSQL, Elasticsearch, RabbitMQ, JDBC |
 | **Observability** | Datadog, New Relic, Grafana, Honeycomb, Lightstep, OTLP endpoints |
 | **HTTP Auth** | Basic Auth headers, Bearer tokens, credentials in URLs, curl commands |
 | **Crypto** | PEM private keys (RSA, EC, DSA, OpenSSH) |
 | **Generic** | High-entropy secrets matching common naming patterns, JWT tokens |
 
-Run `pyl rules` to see all 74 rules with IDs, severity levels, and tags.
+Run `pyl rules` to see all 89 rules with IDs, severity levels, and tags.
 
 ---
 
@@ -259,7 +279,8 @@ The release body includes a download table and install instructions automaticall
 
 ```
 src/
-├── main.rs       Entry point, CLI dispatch
+├── lib.rs        Library root, PyO3 Python bindings
+├── main.rs       CLI entry point, CLI dispatch
 ├── cli.rs        CLI types (Cli, Commands, OutputFormat)
 ├── config.rs     Configuration loading (pyl.toml)
 ├── rules.rs      Built-in detection rules and Severity type

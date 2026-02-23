@@ -10,7 +10,11 @@ pub mod scanner;
 use std::time::Instant;
 
 pub fn run_main() -> i32 {
-    match run_main_inner() {
+    run_main_with_args(std::env::args())
+}
+
+pub(crate) fn run_main_with_args(args: impl IntoIterator<Item = String>) -> i32 {
+    match run_main_inner(args) {
         Ok(code) => code,
         Err(e) => {
             eprintln!("Error: {e}");
@@ -19,7 +23,7 @@ pub fn run_main() -> i32 {
     }
 }
 
-fn run_main_inner() -> anyhow::Result<i32> {
+fn run_main_inner(args: impl IntoIterator<Item = String>) -> anyhow::Result<i32> {
     use clap::Parser as _;
     use colored::Colorize as _;
 
@@ -29,7 +33,7 @@ fn run_main_inner() -> anyhow::Result<i32> {
     use rules::builtin_rules;
     use scanner::Scanner;
 
-    let cli = Cli::parse();
+    let cli = Cli::parse_from(args);
     match cli.command {
         Commands::InitConfig => {
             let path = std::path::PathBuf::from("pyl.toml");
@@ -213,7 +217,11 @@ mod python {
     /// Run the pyl CLI. Exits the process with an appropriate exit code.
     #[pyfunction]
     fn run_cli() {
-        std::process::exit(crate::run_main());
+        // When invoked as a pip console script the process args are:
+        //   [python_interpreter, /path/to/bin/pyl, subcommand, ...]
+        // Skip argv[0] (the interpreter) so clap sees [script_path, subcommand, ...]
+        let args: Vec<String> = std::env::args().skip(1).collect();
+        std::process::exit(crate::run_main_with_args(args));
     }
 
     #[pymodule]

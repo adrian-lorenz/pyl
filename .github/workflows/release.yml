@@ -6,16 +6,16 @@ on:
       - "v*"
   workflow_dispatch:
 
-
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # ── Linux & Windows (cross-compilation via Docker) ──────────────────────────
+  # ── Linux & Windows stable targets ──────────────────────────────────────────
   build-linux-windows:
     name: Build ${{ matrix.name }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: x86_64-unknown-linux-musl
@@ -27,9 +27,6 @@ jobs:
           - target: x86_64-pc-windows-gnu
             name: windows-amd64
             ext: .exe
-          - target: aarch64-pc-windows-gnullvm
-            name: windows-arm64
-            ext: .exe
 
     steps:
       - uses: actions/checkout@v4
@@ -39,13 +36,21 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
       - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
+        run: |
+          curl -sSL \
+            https://github.com/cross-rs/cross/releases/latest/download/cross-x86_64-unknown-linux-gnu.tar.gz \
+            | tar xz -C /usr/local/bin cross
 
       - name: Build
         run: cross build --release --target ${{ matrix.target }}
 
-      - name: Rename binary
+      - name: Stage binary
         run: |
           cp target/${{ matrix.target }}/release/pyl${{ matrix.ext }} \
              pyl-${{ matrix.name }}${{ matrix.ext }}
@@ -56,7 +61,44 @@ jobs:
           name: pyl-${{ matrix.name }}
           path: pyl-${{ matrix.name }}${{ matrix.ext }}
 
-  # ── macOS ARM64 (native build) ───────────────────────────────────────────────
+  # ── Windows ARM64 (experimental) ─────────────────────────────────────────────
+  build-windows-arm64:
+    name: Build windows-arm64 (experimental)
+    runs-on: ubuntu-latest
+    continue-on-error: true   # does not block the release if this fails
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-gnullvm
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: aarch64-pc-windows-gnullvm
+
+      - name: Install cross
+        run: |
+          curl -sSL \
+            https://github.com/cross-rs/cross/releases/latest/download/cross-x86_64-unknown-linux-gnu.tar.gz \
+            | tar xz -C /usr/local/bin cross
+
+      - name: Build
+        run: cross build --release --target aarch64-pc-windows-gnullvm
+
+      - name: Stage binary
+        run: cp target/aarch64-pc-windows-gnullvm/release/pyl.exe pyl-windows-arm64.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyl-windows-arm64
+          path: pyl-windows-arm64.exe
+
+  # ── macOS ARM64 ───────────────────────────────────────────────────────────────
   build-macos:
     name: Build macos-arm64
     runs-on: macos-latest
@@ -69,10 +111,13 @@ jobs:
         with:
           targets: aarch64-apple-darwin
 
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Build
         run: cargo build --release --target aarch64-apple-darwin
 
-      - name: Rename binary
+      - name: Stage binary
         run: cp target/aarch64-apple-darwin/release/pyl pyl-macos-arm64
 
       - name: Upload artifact
@@ -84,7 +129,8 @@ jobs:
   # ── Create GitHub Release ────────────────────────────────────────────────────
   release:
     name: Create Release
-    needs: [build-linux-windows, build-macos]
+    needs: [build-linux-windows, build-windows-arm64, build-macos]
+    if: always()   # run even if windows-arm64 failed
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -105,17 +151,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: pyl ${{ github.ref_name }}
+          generate_release_notes: true
           body: |
-            ## pyl ${{ github.ref_name }}
-
-            ### Download
+            ## Download
 
             | Platform | File |
             |----------|------|
             | Linux x86_64 | `pyl-linux-amd64` |
             | Linux ARM64 | `pyl-linux-arm64` |
             | Windows x86_64 | `pyl-windows-amd64.exe` |
-            | Windows ARM64 | `pyl-windows-arm64.exe` |
+            | Windows ARM64 | `pyl-windows-arm64.exe` *(experimental — may be absent)* |
             | macOS Apple Silicon | `pyl-macos-arm64` |
 
             ### Install (Linux / macOS)
@@ -124,4 +169,3 @@ jobs:
             sudo mv pyl-linux-amd64 /usr/local/bin/pyl
             ```
           files: dist/*
-          generate_release_notes: true

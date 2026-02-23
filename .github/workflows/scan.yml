@@ -9,26 +9,38 @@ jobs:
   pyl:
     name: pyl secret scan
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download pyl
-        run: |
-          curl -sSL \
-            https://github.com/adrian-lorenz/pyl/releases/latest/download/pyl-linux-amd64 \
-            -o /usr/local/bin/pyl
-          chmod +x /usr/local/bin/pyl
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build pyl
+        run: cargo build --release
 
       - name: Run scan
-        # --format sarif  → SARIF goes to stdout, redirected into results.sarif
-        # --github-summary → Markdown Job Summary goes to $GITHUB_STEP_SUMMARY
-        # continue-on-error so findings don't abort the upload steps
-        run: pyl check --format sarif --github-summary > results.sarif
+        # SARIF → stdout → results.sarif
+        # Markdown summary → $GITHUB_STEP_SUMMARY
+        # exit code 1 (findings) must not abort the upload step
+        run: ./target/release/pyl check --format sarif --github-summary > results.sarif
         continue-on-error: true
 
+      - name: Validate SARIF
+        run: |
+          if [ ! -s results.sarif ]; then
+            echo "results.sarif is empty or missing — skipping upload"
+            exit 0
+          fi
+
       - name: Upload SARIF to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: results.sarif

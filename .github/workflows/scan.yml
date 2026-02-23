@@ -21,7 +21,10 @@ jobs:
           chmod +x /usr/local/bin/pyl
 
       - name: Run scan
-        run: pyl check --format sarif --github-summary
+        # --format sarif  → SARIF goes to stdout, redirected into results.sarif
+        # --github-summary → Markdown Job Summary goes to $GITHUB_STEP_SUMMARY
+        # continue-on-error so findings don't abort the upload steps
+        run: pyl check --format sarif --github-summary > results.sarif
         continue-on-error: true
 
       - name: Upload SARIF to GitHub Code Scanning

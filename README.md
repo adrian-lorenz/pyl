@@ -40,7 +40,6 @@ Download the latest binary for your platform from the [Releases](https://github.
 | Linux x86_64 | `pyl-linux-amd64` |
 | Linux ARM64 | `pyl-linux-arm64` |
 | Windows x86_64 | `pyl-windows-amd64.exe` |
-| Windows ARM64 | `pyl-windows-arm64.exe` |
 | macOS Apple Silicon | `pyl-macos-arm64` |
 
 ```bash

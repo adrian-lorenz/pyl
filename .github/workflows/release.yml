@@ -10,9 +10,25 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # ── Read version from Cargo.toml ─────────────────────────────────────────────
+  prepare:
+    name: Prepare release tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version
+        id: tag
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "Release tag: v${VERSION}"
+
   # ── Linux & Windows stable targets ──────────────────────────────────────────
   build-linux-windows:
     name: Build ${{ matrix.name }}
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -61,46 +77,10 @@ jobs:
           name: pyl-${{ matrix.name }}
           path: pyl-${{ matrix.name }}${{ matrix.ext }}
 
-  # ── Windows ARM64 (experimental) ─────────────────────────────────────────────
-  build-windows-arm64:
-    name: Build windows-arm64 (experimental)
-    runs-on: ubuntu-latest
-    continue-on-error: true   # does not block the release if this fails
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-pc-windows-gnullvm
-
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: aarch64-pc-windows-gnullvm
-
-      - name: Install cross
-        run: |
-          curl -sSL \
-            https://github.com/cross-rs/cross/releases/latest/download/cross-x86_64-unknown-linux-gnu.tar.gz \
-            | tar xz -C /usr/local/bin cross
-
-      - name: Build
-        run: cross build --release --target aarch64-pc-windows-gnullvm
-
-      - name: Stage binary
-        run: cp target/aarch64-pc-windows-gnullvm/release/pyl.exe pyl-windows-arm64.exe
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pyl-windows-arm64
-          path: pyl-windows-arm64.exe
-
   # ── macOS ARM64 ───────────────────────────────────────────────────────────────
   build-macos:
     name: Build macos-arm64
+    needs: prepare
     runs-on: macos-latest
 
     steps:
@@ -129,8 +109,8 @@ jobs:
   # ── Create GitHub Release ────────────────────────────────────────────────────
   release:
     name: Create Release
-    needs: [build-linux-windows, build-windows-arm64, build-macos]
-    if: always()   # run even if windows-arm64 failed
+    needs: [prepare, build-linux-windows, build-macos]
+
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -150,7 +130,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: pyl ${{ github.ref_name }}
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: pyl ${{ needs.prepare.outputs.tag }}
           generate_release_notes: true
           body: |
             ## Download
@@ -160,7 +141,6 @@ jobs:
             | Linux x86_64 | `pyl-linux-amd64` |
             | Linux ARM64 | `pyl-linux-arm64` |
             | Windows x86_64 | `pyl-windows-amd64.exe` |
-            | Windows ARM64 | `pyl-windows-arm64.exe` *(experimental — may be absent)* |
             | macOS Apple Silicon | `pyl-macos-arm64` |
 
             ### Install (Linux / macOS)

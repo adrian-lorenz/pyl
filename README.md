@@ -31,6 +31,13 @@ cd pyl
 cargo install --path .
 ```
 
+### via pip
+
+```bash
+pip install pyl-secret-leaks
+pyl check .
+```
+
 ### Pre-built binaries
 
 Download the latest binary for your platform from the [Releases](https://github.com/YOUR_USERNAME/pyl/releases/latest) page:
@@ -184,7 +191,45 @@ Run `pyl rules` to see all 74 rules with IDs, severity levels, and tags.
 
 ## GitHub Actions
 
-Two ready-to-use workflows are included in `.github/workflows/`.
+### Use pyl in your own pipeline
+
+Add this job to any workflow to scan for secrets and write the results to the GitHub Job Summary:
+
+```yaml
+jobs:
+  pyl:
+    name: pyl secret scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pyl
+        run: |
+          curl -sSfL \
+            https://github.com/adrian-lorenz/pyl/releases/latest/download/pyl-linux-amd64 \
+            -o /usr/local/bin/pyl
+          chmod +x /usr/local/bin/pyl
+
+      - name: Run scan
+        run: pyl check --format markdown >> "$GITHUB_STEP_SUMMARY"
+```
+
+Or install via pip:
+
+```yaml
+      - name: Install pyl
+        run: pip install pyl-secret-leaks
+
+      - name: Run scan
+        run: pyl check --format markdown >> "$GITHUB_STEP_SUMMARY"
+```
+
+---
+
+Two ready-to-use workflows are also included in `.github/workflows/`.
 
 ### Secret scan on every push — `scan.yml`
 
